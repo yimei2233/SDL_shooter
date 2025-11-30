@@ -1,0 +1,3 @@
+/home/guoan/Game_maker/SDL_shooter/build/CMakeFiles/SDL_shooter-Linux.dir
+/home/guoan/Game_maker/SDL_shooter/build/CMakeFiles/edit_cache.dir
+/home/guoan/Game_maker/SDL_shooter/build/CMakeFiles/rebuild_cache.dir
