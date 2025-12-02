@@ -1,1 +1,0 @@
-/usr/bin/g++ -g CMakeFiles/SDL_shooter-Linux.dir/src/main.cpp.o CMakeFiles/SDL_shooter-Linux.dir/src/Scene_Main.cpp.o CMakeFiles/SDL_shooter-Linux.dir/src/Game.cpp.o -o ../SDL_shooter-Linux  -L/usr/lib/x86_64-linux-gnu  -lSDL2 -lSDL2_image -lSDL2_mixer -lSDL2_ttf 
