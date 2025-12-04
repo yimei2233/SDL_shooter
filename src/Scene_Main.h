@@ -24,9 +24,9 @@ public:
     // 键盘控制
     void keyboardControl(float deltaTime);
     void shootPlayer();
-    // 子弹更新,注意涉及到帧的更新时都要使用 deltaTime 来控制速度
+    // 玩家子弹更新,注意涉及到帧的更新时都要使用 deltaTime 来控制速度
     void updatePlayerProjectile(float deltaTime);
-    // 渲染子弹函数
+    // 渲染玩家子弹函数
     void renderPlayerProjectiles();
     // 敌人生成
     void spawEnemy();
@@ -36,6 +36,12 @@ public:
     void renderEnemies();
     // 敌人射击（这里需要传入敌人对象）
     void shootEnemy(Enemy *enemy);
+    // 敌人子弹方向
+    SDL_FPoint getDirection(Enemy *enemy);
+    // 更新子弹状态
+    void updateEnemyProjectile(float deltaTime);
+    // 渲染敌人子弹函数
+    void renderEnemyProjectile();
 private:
     Game &game;
     Player player;

@@ -50,6 +50,7 @@ void SceneMain::render()
 {
     // 先渲染子弹
     renderPlayerProjectiles();
+    // 渲染玩家
     SDL_Rect playerRect = { static_cast<int>(player.position.x),
                             static_cast<int>(player.position.y),
                             player.width,
@@ -57,7 +58,8 @@ void SceneMain::render()
     SDL_RenderCopy(game.getRenderer(),player.texture,NULL,&playerRect);
     // 渲染敌人
     renderEnemies();
-
+    // 渲染敌人子弹
+    renderEnemyProjectile();
 }
 
 void SceneMain::handleEvents(SDL_Event* event)
@@ -75,6 +77,8 @@ void SceneMain::update(float deltaTime)
     spawEnemy();
     // 更新敌人
     updateEnemies(deltaTime);
+    // 更新敌人子弹状态
+    updateEnemyProjectile(deltaTime);
 }
 
 void SceneMain::clean()
@@ -271,5 +275,58 @@ void SceneMain::spawEnemy()
     auto projectile = new ProjectileEnemy(ProjectileEnemyTemplate);
     projectile->position.x = enemy->position.x + enemy->width / 2 - projectile->width/2;
     projectile->position.y = enemy->position.y + enemy->height / 2 - projectile->height/2;
-    
+    projectile->direction = getDirection(enemy);
+    // std::cout << "子弹朝向" << projectile->direction.x << projectile->direction.y << std::endl;
+    ProjectileEnemys.push_back(projectile);
  }
+SDL_FPoint SceneMain::getDirection(Enemy *enemy)
+{
+    auto x = (player.position.x + player.width / 2) - (enemy->position.x + enemy->width/2);
+    auto y = (player.position.y + player.height / 2) - (enemy->position.y + enemy->height/2);
+    auto length = sqrt(x*x + y*y);
+    x /= length;
+    y /= length;
+    return SDL_FPoint{x,y};
+}
+
+void SceneMain::updateEnemyProjectile(float deltaTime)
+{
+    auto margin = 32;
+    for(auto it = ProjectileEnemys.begin();it != ProjectileEnemys.end();)
+    {
+        // projectile 也是指针
+        auto projectile = *it;
+        projectile->position.y += projectile->speed * deltaTime * projectile->direction.y;
+        projectile->position.x += projectile->speed * deltaTime * projectile->direction.x;
+        // 是否超出屏幕的判断
+        if(projectile->position.x < -margin ||
+            projectile->position.x > game.getWindowWidth() + margin ||
+            projectile->position.y < -margin ||
+            projectile->position.y > game.getWindowHeight() + margin
+            )
+            {
+                delete projectile;
+                it = ProjectileEnemys.erase(it);
+            }else{
+                ++it;
+            }
+
+    }
+}
+
+void SceneMain::renderEnemyProjectile()
+{
+    for(auto projectile : ProjectileEnemys){
+        SDL_Rect projectileRect = {
+            static_cast<int>(projectile->position.x),
+            static_cast<int>(projectile->position.y),
+            projectile->width,
+            projectile->height
+        };
+        // 这里为了保证子弹旋转，要使用新的渲染函数ex
+        // SDL_RenderCopy(game.getRenderer(),projectile->texture,NULL, &projectileRect);
+        // 先计算角度 , 这里使用了atan2函数，计算反正切，结果为弧度制下的角度
+        float angle = atan2(projectile->direction.y,projectile->direction.x) * 180 / M_PI - 90;
+        SDL_RenderCopyEx(game.getRenderer(),projectile->texture,NULL, &projectileRect,angle,NULL,SDL_FLIP_NONE);
+    }
+}
