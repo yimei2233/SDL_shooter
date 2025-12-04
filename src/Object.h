@@ -9,8 +9,9 @@ struct Player
     int width = 0;
     int height = 0;
     int speed = 200;
+    int currentHealth = 3;
     // 子弹的发射时间冷却；子弹在进行发射时要注意两个子弹之间的间隔
-    Uint32 coolDown = 500;
+    Uint32 coolDown = 200;
     Uint32 lastShootTime = 0;
 };
 // 子弹（投掷物）对象
@@ -21,6 +22,8 @@ struct ProjectilePlayer
     int width = 0;
     int height = 0;
     int speed = 400;
+    // 伤害
+    int damage = 1;
 };
 // 敌机对象
 struct Enemy
@@ -29,10 +32,14 @@ struct Enemy
     SDL_FPoint position = {0,0};
     int width = 0;
     int height = 0;
-    int speed = 400;
+    int speed = 200;
+    // 生命值
+    int currentHealth = 2;
+
     // 子弹的发射时间冷却；子弹在进行发射时要注意两个子弹之间的间隔
     Uint32 coolDown = 1000;
     Uint32 lastShootTime = 0;
+
 };
 // 敌机的子弹
 struct ProjectileEnemy
@@ -44,5 +51,21 @@ struct ProjectileEnemy
     int width = 0;
     int height = 0;
     int speed = 400;
+    // 伤害
+    int damage = 1;
 };
+
+// 爆炸动画序列帧
+struct Explosion
+{
+    SDL_Texture* texture = nullptr;
+    SDL_FPoint position = {0,0};
+    int width = 0;
+    int height = 0;
+    int currentFrame = 0;
+    int totalFrame = 0;
+    Uint32 startTime = 0;
+    Uint32 FPS = 10;
+};
+
 #endif

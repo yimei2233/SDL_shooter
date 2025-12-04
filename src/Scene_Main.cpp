@@ -44,6 +44,12 @@ void SceneMain::init()
     SDL_QueryTexture(ProjectileEnemyTemplate.texture,nullptr,nullptr,&ProjectileEnemyTemplate.width,&ProjectileEnemyTemplate.height);
     ProjectileEnemyTemplate.width   /= 4;
     ProjectileEnemyTemplate.height  /= 4;
+    // 7.初始化序列帧动画
+    explosionTemplate.texture = IMG_LoadTexture(game.getRenderer(),"assets/effect/explosion.png");
+    SDL_QueryTexture(explosionTemplate.texture,nullptr,nullptr,&explosionTemplate.width,&explosionTemplate.height);
+    explosionTemplate.totalFrame =  explosionTemplate.width / explosionTemplate.height;
+    // explosionTemplate.height /= 4;
+    explosionTemplate.width = explosionTemplate.height;
 }
 
 void SceneMain::render()
@@ -51,15 +57,21 @@ void SceneMain::render()
     // 先渲染子弹
     renderPlayerProjectiles();
     // 渲染玩家
-    SDL_Rect playerRect = { static_cast<int>(player.position.x),
-                            static_cast<int>(player.position.y),
-                            player.width,
-                            player.height };
-    SDL_RenderCopy(game.getRenderer(),player.texture,NULL,&playerRect);
+    if(!is_dead)
+    {
+        SDL_Rect playerRect = { static_cast<int>(player.position.x),
+                        static_cast<int>(player.position.y),
+                        player.width,
+                        player.height };
+        SDL_RenderCopy(game.getRenderer(),player.texture,NULL,&playerRect);
+    }
+
     // 渲染敌人
     renderEnemies();
     // 渲染敌人子弹
     renderEnemyProjectile();
+    // 渲染爆炸特效
+    renderExplosions();
 }
 
 void SceneMain::handleEvents(SDL_Event* event)
@@ -69,7 +81,7 @@ void SceneMain::handleEvents(SDL_Event* event)
 // deltaTime 来自于 游戏主循环run
 void SceneMain::update(float deltaTime)
 {
-    // 键盘检测
+    // 键盘检测，包含对玩家控制的逻辑
     keyboardControl(deltaTime);
     // 发射出去的子弹更新
     updatePlayerProjectile(deltaTime);
@@ -79,6 +91,10 @@ void SceneMain::update(float deltaTime)
     updateEnemies(deltaTime);
     // 更新敌人子弹状态
     updateEnemyProjectile(deltaTime);
+    // 更新玩家状态
+    updatePlayer(deltaTime);
+    // 处理动画
+    updateExplosion(deltaTime);
 }
 
 void SceneMain::clean()
@@ -108,6 +124,15 @@ void SceneMain::clean()
         }
     }
     ProjectileEnemys.clear();
+    for(auto explosion : explosions)
+    {
+        if(explosion != nullptr){
+            delete explosion;
+        }
+    }
+    explosions.clear();
+    
+    
     // 清理模板
     if(player.texture != nullptr)
     {
@@ -125,10 +150,16 @@ void SceneMain::clean()
     {
         SDL_DestroyTexture(ProjectileEnemyTemplate.texture);
     }
+    if(explosionTemplate.texture != nullptr)
+    {
+        SDL_DestroyTexture(explosionTemplate.texture);
+    }
 }
 
 void SceneMain::keyboardControl(float deltaTime)
 {
+    // (is_dead)若玩家死亡，则不需要进行控制
+    if(is_dead) return ;
     // 通过SDL_GetKeyboardState 返回键盘数组指针来判断是否按下
     auto keyboardState = SDL_GetKeyboardState(NULL);
     if(keyboardState[SDL_SCANCODE_W]){
@@ -186,6 +217,10 @@ void SceneMain::updatePlayerProjectile(float deltaTime)
     // 设定子弹超出边界以后消失的距离
     int margin = 32;
     for(auto it = ProjectilePlayers.begin();it != ProjectilePlayers.end(); ){
+        // 检测子弹是否命中
+        // 注意：子弹的检测要在循环内部！！！！
+        // 是每一个子弹都需要进行检测
+        bool hit = false;
         auto projectile = *it;
         projectile->position.y -= deltaTime * projectile->speed;
         // 判断子弹是否超出屏幕
@@ -199,7 +234,35 @@ void SceneMain::updatePlayerProjectile(float deltaTime)
             // static int i = 0;
             // std::cout << "id:" << ++i << " 子弹被清除" << std::endl;
         }else{
-            ++it;
+            // 这里就要进行子弹的碰撞检测，检测子弹是否碰撞了敌人
+            // 检测函数的原理是检测两个矩形区域是否发生了重叠，因此这里要将子弹所在的区域和所有敌人区域进行对比
+            // 检测是否发生了碰撞
+            for(auto enemy : enemies)
+            {
+                SDL_Rect projectileRect = {
+                    static_cast<int>(projectile->position.x),
+                    static_cast<int>(projectile->position.y),
+                    projectile->width,
+                    projectile->height
+                };
+                SDL_Rect enemyRect = {
+                    static_cast<int>(enemy->position.x),
+                    static_cast<int>(enemy->position.y),
+                    enemy->width,
+                    enemy->height
+                };
+                if(SDL_HasIntersection(&enemyRect,&projectileRect))
+                {
+                    // 子弹命中,减少敌人的生命值，并清除子弹
+                    enemy->currentHealth -= projectile->damage;
+                    hit = true;
+                    delete projectile;
+                    it = ProjectilePlayers.erase(it);
+                    break;
+                }
+            }
+            // 不碰撞再自增
+            if(!hit) ++it;
         }
     }
 }
@@ -248,11 +311,22 @@ void SceneMain::spawEnemy()
             delete enemy;
             it = enemies.erase(it);
         }else{
-            if(currentTime - enemy->lastShootTime > enemy->coolDown){
+            // 发射子弹
+            if((currentTime - enemy->lastShootTime > enemy->coolDown) && (!is_dead)){
                 shootEnemy(enemy);
                 enemy->lastShootTime = currentTime;
             }
-            ++it;
+            // 检测敌机的生命值
+            if(enemy->currentHealth <= 0)
+            {
+                // 删除敌机的操作在函数中实现
+                // 这里要传enemy指针，因此不能提前删除指针
+                
+                enemyExploade(enemy);
+                it = enemies.erase(it);
+            }else{
+                ++it;
+            }
         }
     }
  }
@@ -288,7 +362,8 @@ SDL_FPoint SceneMain::getDirection(Enemy *enemy)
     y /= length;
     return SDL_FPoint{x,y};
 }
-
+// 敌人子弹更新时检测玩家血量
+// 同理玩家子弹检测是否碰撞敌人
 void SceneMain::updateEnemyProjectile(float deltaTime)
 {
     auto margin = 32;
@@ -308,7 +383,29 @@ void SceneMain::updateEnemyProjectile(float deltaTime)
                 delete projectile;
                 it = ProjectileEnemys.erase(it);
             }else{
-                ++it;
+                SDL_Rect projectileRect = {
+                    static_cast<int>(projectile->position.x),
+                    static_cast<int>(projectile->position.y),
+                    projectile->width,
+                    projectile->height
+                };
+                SDL_Rect playerRect = {
+                    static_cast<int>(player.position.x),
+                    static_cast<int>(player.position.y),
+                    player.width,
+                    player.height
+                };
+                // 玩家存活时才进行碰撞检测
+                if(SDL_HasIntersection(&playerRect,&projectileRect) && (!is_dead))
+                {
+                    // 子弹命中,减少敌人的生命值，并清除子弹
+                    player.currentHealth -= projectile->damage;
+                    delete projectile;
+                    it = ProjectileEnemys.erase(it);
+                    break;
+                }else{
+                    ++it;
+                }
             }
 
     }
@@ -328,5 +425,94 @@ void SceneMain::renderEnemyProjectile()
         // 先计算角度 , 这里使用了atan2函数，计算反正切，结果为弧度制下的角度
         float angle = atan2(projectile->direction.y,projectile->direction.x) * 180 / M_PI - 90;
         SDL_RenderCopyEx(game.getRenderer(),projectile->texture,NULL, &projectileRect,angle,NULL,SDL_FLIP_NONE);
+    }
+}
+
+void SceneMain::enemyExploade(Enemy *enemy)
+{
+    auto currentTime = SDL_GetTicks();
+    // 添加爆炸特效
+    auto explosion = new Explosion(explosionTemplate);
+    explosion->position.x = enemy->position.x + enemy->width / 2 - explosion->width / 2;
+    explosion->position.y = enemy->position.y + enemy->height / 2 - explosion->height / 2;
+    explosion->startTime = currentTime;
+    explosions.push_back(explosion);
+    delete enemy;
+}
+void SceneMain::updatePlayer(float)
+{
+    if(is_dead) return;
+    // 玩家死亡逻辑
+    // 检测是否与敌人碰撞
+    for(auto enemy : enemies)
+    {
+        SDL_Rect enemyRect = {
+                    static_cast<int>(enemy->position.x),
+                    static_cast<int>(enemy->position.y),
+                    enemy->width,
+                    enemy->height
+                };
+        SDL_Rect playerRect = {
+            static_cast<int>(player.position.x),
+            static_cast<int>(player.position.y),
+            player.width,
+            player.height
+        };
+        if(SDL_HasIntersection(&playerRect,&enemyRect))
+        {
+            enemy->currentHealth = 0;
+            player.currentHealth -= 1;
+        }
+    }
+    if(player.currentHealth <= 0)
+    {
+        // 游戏结束
+        // 使用变量来标识玩家是否死亡,如果玩家死亡
+        // 1. 禁止玩家控制
+        is_dead = true;
+
+        auto currentTime = SDL_GetTicks();
+        // 添加爆炸特效
+        auto explosion = new Explosion(explosionTemplate);
+        explosion->position.x = player.position.x + player.width / 2 - explosion->width / 2;
+        explosion->position.y = player.position.y + player.height / 2 - explosion->height / 2;
+        explosion->startTime = currentTime;
+        explosions.push_back(explosion);
+    }
+}
+// 记住：update所要处理的只有逻辑与信息，render才负责渲染
+// render渲染的信息来自于update函数
+void SceneMain::updateExplosion(float)
+{
+    auto currentTime = SDL_GetTicks();
+    for(auto it = explosions.begin() ; it != explosions.end(); )
+    {
+        
+        Explosion* explosion = *it;
+        // 计算当前帧
+        // 时间间隔*FPS/1000  因为这里的时间单位为毫秒
+        explosion->currentFrame = (currentTime - explosion->startTime)*explosion->FPS / 1000;
+        if(explosion->currentFrame >= explosion->totalFrame)
+        {
+            delete explosion;
+            it = explosions.erase(it);
+        }else{
+            ++it;
+        }
+    }
+}
+
+void SceneMain::renderExplosions()
+{
+    for(auto explosion : explosions)
+    {
+        // 注意这里我们通过当前帧的编号来进行图片区域的选择
+        // 图片分为原图片和目标图片
+        SDL_Rect src = {explosion->currentFrame * explosion->width,0,explosion->width,explosion->height};
+        SDL_Rect dsc = {static_cast<int>(explosion->position.x),
+                        static_cast<int>(explosion->position.y),
+                        explosion->width,
+                        explosion->height};
+        SDL_RenderCopy(game.getRenderer(),explosion->texture,&src,&dsc);
     }
 }

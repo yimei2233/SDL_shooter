@@ -42,6 +42,14 @@ public:
     void updateEnemyProjectile(float deltaTime);
     // 渲染敌人子弹函数
     void renderEnemyProjectile();
+    // 敌人死亡
+    void enemyExploade(Enemy* enemy);
+    // 玩家状态更新
+    void updatePlayer(float deltaTime);
+    // 处理动画队列
+    void updateExplosion(float deltaTime);
+    // 渲染动画序列
+    void renderExplosions();
 private:
     Game &game;
     Player player;
@@ -59,6 +67,11 @@ private:
     // 4.敌机子弹
     ProjectileEnemy ProjectileEnemyTemplate;
     std::list<ProjectileEnemy*>ProjectileEnemys;
+    // 5.玩家状态
+    bool is_dead = false;
+    // 6.序列帧动画 在死亡的物体上创建动画，待创建的动画都保存在explosions中
+    Explosion explosionTemplate;
+    std::list<Explosion*>explosions;
 };
 
 
