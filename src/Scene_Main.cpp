@@ -15,6 +15,24 @@ SceneMain::SceneMain():game(Game::getInstance())
 
 void SceneMain::init()
 {
+    // 先载入bgm
+    bgm = Mix_LoadMUS("assets/music/03_Racing_Through_Asteroids_Loop.ogg");
+    if(bgm == nullptr)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"Fail to load music: %s",Mix_GetError());
+    }
+    // 播放音乐，-1 为一直循环
+    Mix_PlayMusic(bgm,-1);
+
+    // 读取音效资源
+    sounds["player_shoot"] = Mix_LoadWAV("assets/sound/laser_shoot4.wav");
+    sounds["enemy_shoot"] = Mix_LoadWAV("assets/sound/xs_laser.wav");
+    sounds["player_explode"] = Mix_LoadWAV("assets/sound/explosion1.wav");
+    sounds["enemy_explode"] = Mix_LoadWAV("assets/sound/explosion3.wav");
+    sounds["hit"] = Mix_LoadWAV("assets/sound/eff11.wav");
+    sounds["get_item"] = Mix_LoadWAV("assets/sound/eff5.wav");
+
+
     // 1.玩家初始化
     player.texture = IMG_LoadTexture(game.getRenderer(),"assets/image/SpaceShip.png");
     // 获取纹理的宽和高
@@ -50,6 +68,12 @@ void SceneMain::init()
     explosionTemplate.totalFrame =  explosionTemplate.width / explosionTemplate.height;
     // explosionTemplate.height /= 4;
     explosionTemplate.width = explosionTemplate.height;
+    // 8.初始化道具模板
+    itemLifeTemplate.texture = IMG_LoadTexture(game.getRenderer(),"assets/image/bonus_life.png");
+    SDL_QueryTexture(itemLifeTemplate.texture,nullptr,nullptr,&itemLifeTemplate.width,&itemLifeTemplate.height);
+    itemLifeTemplate.width   /= 4;
+    itemLifeTemplate.height  /= 4;
+    
 }
 
 void SceneMain::render()
@@ -70,11 +94,13 @@ void SceneMain::render()
     renderEnemies();
     // 渲染敌人子弹
     renderEnemyProjectile();
+    // 渲染掉落物品
+    renderItems();
     // 渲染爆炸特效
     renderExplosions();
 }
 
-void SceneMain::handleEvents(SDL_Event* event)
+void SceneMain::handleEvents(SDL_Event*)
 {
     
 }
@@ -95,6 +121,8 @@ void SceneMain::update(float deltaTime)
     updatePlayer(deltaTime);
     // 处理动画
     updateExplosion(deltaTime);
+    // 更新掉落物品状态
+    updateItem(deltaTime);
 }
 
 void SceneMain::clean()
@@ -131,8 +159,21 @@ void SceneMain::clean()
         }
     }
     explosions.clear();
-    
-    
+    for(auto item : items)
+    {
+        if(item != nullptr){
+            delete item;
+        }
+    }
+    items.clear();
+    for(auto sound : sounds)
+    {
+        if(sound.second != nullptr)
+        {
+            delete(sound.second);
+        }
+    }
+    sounds.clear();
     // 清理模板
     if(player.texture != nullptr)
     {
@@ -154,6 +195,16 @@ void SceneMain::clean()
     {
         SDL_DestroyTexture(explosionTemplate.texture);
     }
+    if(itemLifeTemplate.texture != nullptr)
+    {
+        SDL_DestroyTexture(itemLifeTemplate.texture);
+    }
+    // 清理音乐资源
+    if(bgm != nullptr)
+    {
+        Mix_HaltMusic();
+        Mix_FreeMusic(bgm);
+    }
 }
 
 void SceneMain::keyboardControl(float deltaTime)
@@ -173,6 +224,12 @@ void SceneMain::keyboardControl(float deltaTime)
     }
     if(keyboardState[SDL_SCANCODE_D]){
         player.position.x += player.speed * deltaTime;
+    }
+    if(keyboardState[SDL_SCANCODE_SPACE])
+    {
+        player.speed = player.highSpeed;
+    }else{
+        player.speed = player.normalSpeed;
     }
     // 限制飞机的移动范围
     if(player.position.x < 0){
@@ -209,6 +266,7 @@ void SceneMain::shootPlayer()
     projectile->position.x = player.position.x + player.width / 2 - projectile-> width/2;
     // 注意这里是指针，因为 new 出来的已经是指针了
     ProjectilePlayers.push_back(projectile);
+    Mix_PlayChannel(0,sounds["player_shoot"],0);
 
 }
 // 更新子弹的移动
@@ -258,6 +316,7 @@ void SceneMain::updatePlayerProjectile(float deltaTime)
                     hit = true;
                     delete projectile;
                     it = ProjectilePlayers.erase(it);
+                    Mix_PlayChannel(0,sounds["hit"],0);
                     break;
                 }
             }
@@ -321,7 +380,6 @@ void SceneMain::spawEnemy()
             {
                 // 删除敌机的操作在函数中实现
                 // 这里要传enemy指针，因此不能提前删除指针
-                
                 enemyExploade(enemy);
                 it = enemies.erase(it);
             }else{
@@ -352,6 +410,7 @@ void SceneMain::spawEnemy()
     projectile->direction = getDirection(enemy);
     // std::cout << "子弹朝向" << projectile->direction.x << projectile->direction.y << std::endl;
     ProjectileEnemys.push_back(projectile);
+    Mix_PlayChannel(-1,sounds["enemy_shoot"],0);
  }
 SDL_FPoint SceneMain::getDirection(Enemy *enemy)
 {
@@ -402,7 +461,8 @@ void SceneMain::updateEnemyProjectile(float deltaTime)
                     player.currentHealth -= projectile->damage;
                     delete projectile;
                     it = ProjectileEnemys.erase(it);
-                    break;
+                    // break;
+                    Mix_PlayChannel(0,sounds["hit"],0);
                 }else{
                     ++it;
                 }
@@ -431,12 +491,17 @@ void SceneMain::renderEnemyProjectile()
 void SceneMain::enemyExploade(Enemy *enemy)
 {
     auto currentTime = SDL_GetTicks();
-    // 添加爆炸特效
+    // 1.添加爆炸特效
     auto explosion = new Explosion(explosionTemplate);
     explosion->position.x = enemy->position.x + enemy->width / 2 - explosion->width / 2;
     explosion->position.y = enemy->position.y + enemy->height / 2 - explosion->height / 2;
     explosion->startTime = currentTime;
     explosions.push_back(explosion);
+    Mix_PlayChannel(0,sounds["enemy_shoot"],0);
+    // 2.掉落物品,在一定概率下
+    if(dis(gen) < 0.5){
+        dropItem(enemy);
+    }
     delete enemy;
 }
 void SceneMain::updatePlayer(float)
@@ -478,6 +543,7 @@ void SceneMain::updatePlayer(float)
         explosion->position.y = player.position.y + player.height / 2 - explosion->height / 2;
         explosion->startTime = currentTime;
         explosions.push_back(explosion);
+        Mix_PlayChannel(0,sounds["player_explode"],0);
     }
 }
 // 记住：update所要处理的只有逻辑与信息，render才负责渲染
@@ -514,5 +580,111 @@ void SceneMain::renderExplosions()
                         explosion->width,
                         explosion->height};
         SDL_RenderCopy(game.getRenderer(),explosion->texture,&src,&dsc);
+    }
+}
+
+void SceneMain::dropItem(Enemy* enemy)
+{
+    auto item = new Item(itemLifeTemplate);
+    item->position.x = enemy->position.x + enemy->width / 2 - item->width / 2;
+    item->position.y = enemy->position.y + enemy->height / 2 - item->height / 2;
+    float  angle = dis(gen)* 2 * M_PI;
+    item->direction.x = cos(angle);
+    item->direction.y = sin(angle);
+    items.push_back(item);
+}
+
+void SceneMain::updateItem(float deltaTime)
+{
+    for(auto it = items.begin();it != items.end(); )
+    {
+        auto item = *it;
+        // 更新位置
+        item->position.x += item->direction.x * item->speed * deltaTime;
+        item->position.y += item->direction.y * item->speed * deltaTime;
+        // 判断如果超出屏幕范围则删除
+        // 判断反弹
+        if(item->position.x < 0 && item->bounce > 0 )
+        {
+            item->direction.x *= -1;
+            --item->bounce;
+        }
+        if(item->position.x + item->width > game.getWindowWidth() && item->bounce > 0)
+        {
+            item->direction.x *= -1;
+            --item->bounce;
+        }
+        if(item->position.y < 0&& item->bounce > 0)
+        {
+            item->direction.y *= -1;
+            --item->bounce;
+        }
+        if(item->position.y + item->height > game.getWindowHeight()&& item->bounce > 0)
+        {
+            item->direction.y *= -1;
+            --item->bounce;
+        }
+
+        if( item->position.x + item->width < 0 ||
+            item->position.x > game.getWindowWidth() ||    
+            item->position.y > game.getWindowHeight() ||
+            item->position.y + item->height < 0 )
+            {
+                delete item;
+                it = items.erase(it);
+            }
+        else {
+            SDL_Rect itemRect = {
+            static_cast<int>(item->position.x),
+            static_cast<int>(item->position.y),
+            item->width,
+            item->height
+            };
+            SDL_Rect playerRect = {
+                static_cast<int>(player.position.x),
+                static_cast<int>(player.position.y),
+                player.width,
+                player.height
+            };
+            if(SDL_HasIntersection(&itemRect,&playerRect) && (!is_dead))
+            {
+                // 负责获取道具并清除对应的图标
+                playerGetItem(item);
+                delete item;
+                it = items.erase(it);
+            }else
+            {
+                ++it;
+            }
+
+        }
+    }
+
+}
+
+void SceneMain::playerGetItem(Item* item)
+{
+    if(item->type == ItemType::Health)
+    {
+        if(player.currentHealth < player.maxHealth)
+        {
+            ++player.currentHealth;
+            std:: cout << "当前生命值："<< player.currentHealth << std::endl;
+        }
+    }
+    Mix_PlayChannel(0,sounds["get_item"],0);
+}
+
+void SceneMain::renderItems()
+{
+    for(auto& item : items)
+    {
+        SDL_Rect itemRect = {
+                    static_cast<int>(item->position.x),
+                    static_cast<int>(item->position.y),
+                    item->width,
+                    item->height
+                };
+        SDL_RenderCopy(game.getRenderer(),item->texture,NULL,&itemRect);
     }
 }

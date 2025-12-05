@@ -2,6 +2,12 @@
 #define OBJECT_H
 #include<SDL.h>
 
+enum class ItemType{
+    Health,
+    Shield,
+    Time
+};
+
 struct Player
 {
     SDL_Texture* texture = nullptr;
@@ -9,7 +15,10 @@ struct Player
     int width = 0;
     int height = 0;
     int speed = 200;
+    int highSpeed = 400;
+    int normalSpeed = 200;
     int currentHealth = 3;
+    int maxHealth = 5;
     // 子弹的发射时间冷却；子弹在进行发射时要注意两个子弹之间的间隔
     Uint32 coolDown = 200;
     Uint32 lastShootTime = 0;
@@ -50,7 +59,7 @@ struct ProjectileEnemy
     SDL_FPoint direction = {0,0};
     int width = 0;
     int height = 0;
-    int speed = 400;
+    int speed = 200;
     // 伤害
     int damage = 1;
 };
@@ -67,5 +76,16 @@ struct Explosion
     Uint32 startTime = 0;
     Uint32 FPS = 10;
 };
-
+// 掉落物品
+struct Item
+{
+    SDL_Texture* texture = nullptr;
+    SDL_FPoint position = {0,0};
+    SDL_FPoint direction = {0,0};
+    int width = 0;
+    int height = 0;
+    int speed = 200;
+    int bounce = 3;
+    ItemType type = ItemType::Health;
+};
 #endif

@@ -6,7 +6,9 @@
 #include "Object.h"
 #include<SDL.h>
 #include<list>
+#include<map>
 #include<random>
+#include<SDL_mixer.h>
 
 class SceneMain : public Scene
 {
@@ -50,6 +52,14 @@ public:
     void updateExplosion(float deltaTime);
     // 渲染动画序列
     void renderExplosions();
+    // 创建掉落物品，在敌人死后调用
+    void dropItem(Enemy* enemy);
+    // 更新物品状态
+    void updateItem(float deltaTime);
+    // 玩家获取物品
+    void playerGetItem(Item* item);
+    // 渲染物品
+    void renderItems();
 private:
     Game &game;
     Player player;
@@ -58,7 +68,7 @@ private:
     std::list<ProjectilePlayer*>ProjectilePlayers;
     // 初始化子弹模板
     ProjectilePlayer ProjectilePlayerTemplate;
-    // 2.随机数
+    // 2.随机数  通过 dis(gen) 来生成 
     std::mt19937 gen;
     std::uniform_real_distribution<float>dis;
     // 3.敌机模板
@@ -72,6 +82,13 @@ private:
     // 6.序列帧动画 在死亡的物体上创建动画，待创建的动画都保存在explosions中
     Explosion explosionTemplate;
     std::list<Explosion*>explosions;
+    // 7.道具模板
+    Item itemLifeTemplate;
+    std::list<Item*>items;
+    // 8.音乐资源
+    Mix_Music* bgm;
+    // 9.音效库
+    std::map<std::string,Mix_Chunk*>sounds;
 };
 
 

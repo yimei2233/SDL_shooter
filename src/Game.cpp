@@ -2,6 +2,8 @@
 #include "Scene_Main.h"
 #include<SDL.h>
 #include<SDL_image.h>
+#include<SDL_mixer.h>
+#include<SDL_ttf.h>
 
 Game::Game()
 {
@@ -43,6 +45,23 @@ void Game::init()
         SDL_LogError(SDL_LOG_CATEGORY_ERROR,"Could not initialize SDL_image: %s\n",SDL_GetError());
         isRunning = false;
     }
+    // 初始化SDL_image
+    if(Mix_Init(MIX_INIT_MP3 | MIX_INIT_OGG) != (MIX_INIT_MP3 | MIX_INIT_OGG))
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR,"Could not initialize SDL_mix: %s\n",SDL_GetError());
+        isRunning = false;
+    }
+    // 打开音频设备
+    if(Mix_OpenAudio(44100,MIX_DEFAULT_FORMAT,2,2048) < 0){
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR,"Could not open audio: %s\n",SDL_GetError());
+        isRunning = false;
+    }
+    // 设置音效channel数量 可同时播放音效的个数
+    Mix_AllocateChannels(32);
+    // 设置音乐音量
+    Mix_VolumeMusic(MIX_MAX_VOLUME);
+    // 设置音效音量
+    Mix_Volume(-1,MIX_MAX_VOLUME);
     // 初始化当前场景
     currentScene = new SceneMain();
     currentScene->init();
@@ -54,6 +73,11 @@ void Game::clean()
         currentScene->clean();
         delete currentScene;
     }
+    // 清理SDL_IMG
+    IMG_Quit();
+    // 清理SDL_MIXer
+    Mix_CloseAudio();
+    Mix_Quit();
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
