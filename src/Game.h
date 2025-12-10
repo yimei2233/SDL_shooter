@@ -2,7 +2,7 @@
 #define GAME_H
 
 #include "Scene.h"
-
+#include"Object.h"
 #include<SDL.h>
 
 class Game{
@@ -38,7 +38,9 @@ private:
     void handleEvent(SDL_Event* event);
     void update(float deltaTime);
     void render();
-
+    // 背景更新，渲染
+    void backgroundUpdate(float deltaTime);
+    void renderBackground();
 // 经常用的变量
 private:
     bool isRunning = true;
@@ -51,6 +53,10 @@ private:
     int FPS = 60;
     Uint32 frameTime;
     float deltaTime;
+    // 背景图片
+    Background nearStars;
+    Background farStars;
+
 };
 
 
