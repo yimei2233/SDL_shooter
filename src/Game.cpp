@@ -52,6 +52,12 @@ void Game::init()
         SDL_LogError(SDL_LOG_CATEGORY_ERROR,"Could not initialize SDL_mix: %s\n",SDL_GetError());
         isRunning = false;
     }
+    // 初始化SDL_ttf
+    if(TTF_Init() == -1)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR,"Could not initialize SDL_ttf: %s\n",SDL_GetError());
+        isRunning = false;
+    }
     // 打开音频设备
     if(Mix_OpenAudio(44100,MIX_DEFAULT_FORMAT,2,2048) < 0){
         SDL_LogError(SDL_LOG_CATEGORY_ERROR,"Could not open audio: %s\n",SDL_GetError());
@@ -72,9 +78,19 @@ void Game::init()
     SDL_QueryTexture(farStars.texture,NULL,NULL,&farStars.width , &farStars.height);
     farStars.speed = 20;
 
-    // 初始化当前场景
-    currentScene = new SceneMain();
+    // 载入字体
+    titleFont = TTF_OpenFont("assets/font/VonwaonBitmap-16px.ttf",64);
+    textFont = TTF_OpenFont("assets/font/VonwaonBitmap-16px.ttf",32);
+    if(titleFont == nullptr || textFont == nullptr)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR,"Could not create ttf: %s\n",SDL_GetError());
+        isRunning = false;
+    }
+
+    // 初始化当前场景，这里决定了第一个创建的场景
+    currentScene = new SceneTitle;
     currentScene->init();
+
 }
 void Game::clean()
 {
@@ -91,13 +107,22 @@ void Game::clean()
     {
         SDL_DestroyTexture(farStars.texture);
     }
+    if(titleFont != nullptr)
+    {
+        TTF_CloseFont(titleFont);
+    }
+    if(textFont != nullptr)
+    {
+        TTF_CloseFont(textFont);
+    }
 
     // 清理SDL_IMG
     IMG_Quit();
     // 清理SDL_MIXer
     Mix_CloseAudio();
     Mix_Quit();
-
+    // 清理ttf
+    TTF_Quit();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
@@ -212,4 +237,26 @@ void Game::renderBackground()
             SDL_RenderCopy(renderer , nearStars.texture , nullptr , &dstRect);
         }
     }
+}
+
+void Game::renderTextCentered(std::string text, float posY, bool isTitle)
+{
+    SDL_Color color= {255,255,255,255};
+    SDL_Surface* surface;
+    // 区分是否为标题字体
+    if(isTitle)
+    {
+        surface = TTF_RenderUTF8_Solid(titleFont,text.c_str(),color);
+    }else{
+        surface = TTF_RenderUTF8_Solid(textFont,text.c_str(),color);
+    }
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(getRenderer(),surface);
+    int y = (getWindowHeight() - surface->h) * posY;
+    SDL_Rect rect = {getWindowWidth()/2 - surface->w/2,
+                        y,
+                        surface->w ,
+                        surface->h};
+    SDL_RenderCopy(getRenderer(),texture,NULL,&rect);
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(texture);
 }

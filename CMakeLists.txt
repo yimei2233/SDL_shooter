@@ -36,6 +36,8 @@ add_executable(${TARGET}
                 "./src/main.cpp"
                 "./src/Scene_Main.cpp"
                 "./src/Game.cpp"
+                "./src/SceneTitle.cpp"
+                "./src/Scene.cpp"
                 )
 # 链接对应的库
 target_include_directories(${TARGET} PUBLIC ${SDL2_INCLUDE_DIRS})

@@ -4,16 +4,18 @@
 // 这里是基类的派生类，所以需要包含基类的头文件
 #include "Scene.h"
 #include "Object.h"
+#include "SceneTitle.h"
 #include<SDL.h>
 #include<list>
 #include<map>
 #include<random>
 #include<SDL_mixer.h>
+#include<SDL_ttf.h>
 
 class SceneMain : public Scene
 {
 public:
-    SceneMain();
+
     ~SceneMain();
 
     // 重写父类的纯虚函数
@@ -23,6 +25,8 @@ public:
     void handleEvents(SDL_Event* event) override;
     void update(float deltaTime) override;
     void clean() override;
+
+private:
     // 键盘控制
     void keyboardControl(float deltaTime);
     void shootPlayer();
@@ -60,8 +64,9 @@ public:
     void playerGetItem(Item* item);
     // 渲染物品
     void renderItems();
+    // 渲染UI
+    void renderUI();
 private:
-    Game &game;
     Player player;
     // 1.使用list来管理玩家子弹对象
     // 这里使用指针为了减少栈上的开销
@@ -89,6 +94,12 @@ private:
     Mix_Music* bgm;
     // 9.音效库
     std::map<std::string,Mix_Chunk*>sounds;
+    // 10. 图标
+    SDL_Texture* uiHealth;
+    // 11.字体
+    TTF_Font* scoreFont;
+    // 12.总分
+    int score = 0;
 };
 
 
