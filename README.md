@@ -1,5 +1,4 @@
 # 1.SDL_shooter
-    还未完成
     w a s d 进行控制，j进行子弹的发射，space进行加速
 
 ## 2.小记
